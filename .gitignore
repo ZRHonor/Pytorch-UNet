@@ -6,3 +6,6 @@ checkpoints/
 *.jpg
 SUBMISSION*
 venv/
+runs/
+data/
+.vscode/

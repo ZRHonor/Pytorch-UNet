@@ -1,29 +1,25 @@
-""" Parts of the U-Net model """
-
 import torch
 import torch.nn as nn
+from .quaternion_layers import *
 import torch.nn.functional as F
 
 
-class DoubleConv(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
 
+class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, mid_channels=None):
         super(DoubleConv, self).__init__()
         if not mid_channels:
             mid_channels = out_channels
         self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1),
+            UnilateralQuaternionConv(in_channels//4, mid_channels//4, kernel_size=3, padding=1),
             nn.BatchNorm2d(mid_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
+            UnilateralQuaternionConv(mid_channels//4, out_channels//4, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
-
     def forward(self, x):
         return self.double_conv(x)
-
 
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
@@ -38,7 +34,6 @@ class Down(nn.Module):
     def forward(self, x):
         return self.maxpool_conv(x)
 
-
 class Up(nn.Module):
     """Upscaling then double conv"""
 
@@ -50,7 +45,8 @@ class Up(nn.Module):
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
             self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
-            self.up = nn.ConvTranspose2d(in_channels , in_channels // 2, kernel_size=2, stride=2)
+            # self.up = nn.ConvTranspose2d(in_channels , in_channels // 2, kernel_size=2, stride=2)
+            self.up = UnilateralQuaternionTransposeConv(in_channels, in_channels//2, kernel_size=2, stride=2)
             self.conv = DoubleConv(in_channels, out_channels)
 
 
@@ -67,7 +63,6 @@ class Up(nn.Module):
         # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
-
 
 class OutConv(nn.Module):
     def __init__(self, in_channels, out_channels):
